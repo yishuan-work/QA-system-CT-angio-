@@ -1032,7 +1032,8 @@ async function loadStateAsync() {
 async function saveStateGS_users() {
   saveStateLocal();
   if (gsOnline) {
-    await Promise.all(sharedCfg.users.map(u => gsPost('saveUser', u)));
+    // 同步所有使用者（全量覆寫）
+    await gsPost('syncAllUsers', {users: sharedCfg.users});
   }
 }
 async function saveStateGS_ctCfg(room, data) {
@@ -1644,12 +1645,12 @@ function populateCTRoomSettings(){
     ['brand','model','noise'].forEach(k=>{const el=document.getElementById('cfg-'+rid+'-'+k);if(el&&r[k]!=null)el.value=r[k];});
   });
 }
-function saveRoomCfg(rid){
+async function saveRoomCfg(rid){
   if(!ctCfg.rooms[rid])ctCfg.rooms[rid]={...DEF_ROOMS[rid]};
   ctCfg.rooms[rid].brand=document.getElementById('cfg-'+rid+'-brand').value;
   ctCfg.rooms[rid].model=document.getElementById('cfg-'+rid+'-model').value;
   const n=parseFloat(document.getElementById('cfg-'+rid+'-noise').value);if(!isNaN(n))ctCfg.rooms[rid].noise=n;
-  saveStateGS_ctCfg(rid, ctCfg.rooms[rid]);onRoomChange('d');onRoomChange('m');showToast('CT 檢查室設定已儲存');
+  await saveStateGS_ctCfg(rid, ctCfg.rooms[rid]);onRoomChange('d');onRoomChange('m');showToast('CT 檢查室設定已儲存');
 }
 function populateCTNotify(){
   document.getElementById('ct-notify-body').innerHTML=sharedCfg.users.map(u=>{
@@ -1662,12 +1663,12 @@ function populateCTNotify(){
     <td><input type="checkbox" id="ct-nr-${u.id}" ${p.reviewDone?'checked':''}></td></tr>`;
   }).join('');
 }
-function saveCTNotify(){
+async function saveCTNotify(){
   sharedCfg.users.forEach(u=>{
     u.email=document.getElementById('ct-ne-'+u.id)?.value||'';
     ctCfg.notifyPrefs[u.id]={dailyDone:!!document.getElementById('ct-nd-'+u.id)?.checked,monthlyDone:!!document.getElementById('ct-nm-'+u.id)?.checked,fail:!!document.getElementById('ct-nf-'+u.id)?.checked,reviewDone:!!document.getElementById('ct-nr-'+u.id)?.checked};
   });
-  saveStateGS_ctNotify(ctCfg.notifyPrefs);showToast('CT 通知設定已儲存');
+  await saveStateGS_ctNotify(ctCfg.notifyPrefs);showToast('CT 通知設定已儲存');
 }
 
 // ═══════════════════════════════
@@ -2090,7 +2091,7 @@ function populateAngRoomSettings(){
   document.getElementById('ang-cfg-devtype').value=ar.devType||'血管攝影';
   document.getElementById('ang-cfg-fluoro').value=ar.fluoro||'雙管球';
 }
-function saveAngRoomCfg(){
+async function saveAngRoomCfg(){
   angCfg.room={
     brand:document.getElementById('ang-cfg-brand').value,
     model:document.getElementById('ang-cfg-model').value,
@@ -2098,7 +2099,7 @@ function saveAngRoomCfg(){
     devType:document.getElementById('ang-cfg-devtype').value,
     fluoro:document.getElementById('ang-cfg-fluoro').value
   };
-  saveStateGS_angCfg(angCfg.room);initAngForm();showToast('血管攝影設備設定已儲存');
+  await saveStateGS_angCfg(angCfg.room);initAngForm();showToast('血管攝影設備設定已儲存');
 }
 function populateAngNotify(){
   document.getElementById('ang-notify-body').innerHTML=sharedCfg.users.map(u=>{
@@ -2110,12 +2111,12 @@ function populateAngNotify(){
     <td><input type="checkbox" id="ang-nr-${u.id}" ${p.reviewDone?'checked':''}></td></tr>`;
   }).join('');
 }
-function saveAngNotify(){
+async function saveAngNotify(){
   sharedCfg.users.forEach(u=>{
     u.email=document.getElementById('ang-ne-'+u.id)?.value||u.email||'';
     angCfg.notifyPrefs[u.id]={dailyDone:!!document.getElementById('ang-nd-'+u.id)?.checked,fail:!!document.getElementById('ang-nf-'+u.id)?.checked,reviewDone:!!document.getElementById('ang-nr-'+u.id)?.checked};
   });
-  saveStateGS_angNotify(angCfg.notifyPrefs);showToast('血管攝影通知設定已儲存');
+  await saveStateGS_angNotify(angCfg.notifyPrefs);showToast('血管攝影通知設定已儲存');
 }
 
 // ══ Shared Month Review ══
