@@ -1686,7 +1686,7 @@ function populateCTNotify(){
 async function saveCTNotify(){
   sharedCfg.users.forEach(u=>{
     u.email=document.getElementById('ct-ne-'+u.id)?.value||'';
-    ctCfg.notifyPrefs[u.id]={dailyDone:!!document.getElementById('ct-nd-'+u.id)?.checked,monthlyDone:!!document.getElementById('ct-nm-'+u.id)?.checked,fail:!!document.getElementById('ct-nf-'+u.id)?.checked,reviewDone:!!document.getElementById('ct-nr-'+u.id)?.checked};
+    ctCfg.notifyPrefs[u.id]={email:u.email,dailyDone:!!document.getElementById('ct-nd-'+u.id)?.checked,monthlyDone:!!document.getElementById('ct-nm-'+u.id)?.checked,fail:!!document.getElementById('ct-nf-'+u.id)?.checked,reviewDone:!!document.getElementById('ct-nr-'+u.id)?.checked};
   });
   await saveStateGS_ctNotify(ctCfg.notifyPrefs);showToast('CT 通知設定已儲存');
 }
@@ -2134,7 +2134,7 @@ function populateAngNotify(){
 async function saveAngNotify(){
   sharedCfg.users.forEach(u=>{
     u.email=document.getElementById('ang-ne-'+u.id)?.value||u.email||'';
-    angCfg.notifyPrefs[u.id]={dailyDone:!!document.getElementById('ang-nd-'+u.id)?.checked,fail:!!document.getElementById('ang-nf-'+u.id)?.checked,reviewDone:!!document.getElementById('ang-nr-'+u.id)?.checked};
+    angCfg.notifyPrefs[u.id]={email:u.email,dailyDone:!!document.getElementById('ang-nd-'+u.id)?.checked,fail:!!document.getElementById('ang-nf-'+u.id)?.checked,reviewDone:!!document.getElementById('ang-nr-'+u.id)?.checked};
   });
   await saveStateGS_angNotify(angCfg.notifyPrefs);showToast('血管攝影通知設定已儲存');
 }
@@ -2535,7 +2535,13 @@ async function syncUsersToGS() {
 async function syncCTNotifyToGS() {
   if (!gsOnline) { showToast('尚未連線 Google Sheets','terr'); return; }
   showToast('同步通知設定中…','tok');
-  const r = await gsPost('saveCTNotify', ctCfg.notifyPrefs);
+  // 合併 email（存在 sharedCfg.users）和通知偏好
+  const dataWithEmail = {};
+  Object.keys(ctCfg.notifyPrefs).forEach(uid => {
+    const u = sharedCfg.users.find(x => x.id === uid);
+    dataWithEmail[uid] = {...ctCfg.notifyPrefs[uid], email: u?.email || ''};
+  });
+  const r = await gsPost('saveCTNotify', dataWithEmail);
   if (r && r.ok) showToast('✓ CT 通知設定已同步至 Google Sheets','tok');
   else showToast('同步失敗，請檢查連線','terr');
 }
@@ -2543,7 +2549,13 @@ async function syncCTNotifyToGS() {
 async function syncAngNotifyToGS() {
   if (!gsOnline) { showToast('尚未連線 Google Sheets','terr'); return; }
   showToast('同步通知設定中…','tok');
-  const r = await gsPost('saveAngNotify', angCfg.notifyPrefs);
+  // 合併 email（存在 sharedCfg.users）和通知偏好
+  const dataWithEmail = {};
+  Object.keys(angCfg.notifyPrefs).forEach(uid => {
+    const u = sharedCfg.users.find(x => x.id === uid);
+    dataWithEmail[uid] = {...angCfg.notifyPrefs[uid], email: u?.email || ''};
+  });
+  const r = await gsPost('saveAngNotify', dataWithEmail);
   if (r && r.ok) showToast('✓ 血管攝影通知設定已同步至 Google Sheets','tok');
   else showToast('同步失敗，請檢查連線','terr');
 }
