@@ -2547,7 +2547,9 @@ async function syncCTNotifyToGS() {
       reviewDone: !!p.reviewDone
     };
   });
+  console.log('[CT Notify Sync] data:', JSON.stringify(dataWithEmail));
   const r = await gsPost('saveCTNotify', dataWithEmail);
+  console.log('[CT Notify Sync] result:', JSON.stringify(r));
   if (r && r.ok) showToast('✓ CT 通知設定已同步至 Google Sheets','tok');
   else showToast('同步失敗，請檢查連線','terr');
 }
