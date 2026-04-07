@@ -1037,39 +1037,72 @@ document.addEventListener('click', function(e) {
 // ═══════════════════════════════════════════
 //  非同步載入狀態（GS優先，回退localStorage）
 // ═══════════════════════════════════════════
+let gsFullRecordsLoaded = false; // 是否已載入完整歷史紀錄
+
+function getRecentFrom() {
+  // 取得3個月前的日期
+  const d = new Date();
+  d.setMonth(d.getMonth() - 3);
+  return d.toISOString().slice(0, 10);
+}
+
 async function loadStateAsync() {
   updateGSStatus('loading', '連線中…');
   gsLoading = true;
   setLoginBtnState(false);
-  // Always load localStorage as fallback
   loadStateLocal();
   if (!GS_URL) { updateGSStatus('offline', '離線模式'); gsLoading = false; setLoginBtnState(true); return; }
   try {
-    const [users, ctCfgData, angCfgData, ctRecs, angRecs] = await Promise.all([
+    // 第一階段：只載入帳號、設定（輕量，速度快）
+    const [users, ctCfgData, angCfgData] = await Promise.all([
       gsGet('getUsers'),
       gsGet('getCTConfig'),
-      gsGet('getAngConfig'),
-      gsGet('getCTRecords'),
-      gsGet('getAngRecords')
+      gsGet('getAngConfig')
     ]);
     if (!users) throw new Error('No response');
-    // Merge GS data
     if (users && Array.isArray(users)) sharedCfg.users = users;
     if (ctCfgData && ctCfgData.rooms) ctCfg.rooms = ctCfgData.rooms;
     if (angCfgData && angCfgData.room) angCfg.room = angCfgData.room;
-    if (ctRecs && Array.isArray(ctRecs)) records = ctRecs;
-    if (angRecs && Array.isArray(angRecs)) angRecords = angRecs;
-    // Also get notify prefs
-    const [ctN, angN] = await Promise.all([gsGet('getCTNotify'), gsGet('getAngNotify')]);
-    if (ctN) ctCfg.notifyPrefs = ctN;
-    if (angN) angCfg.notifyPrefs = angN;
-    saveStateLocal(); // cache locally
     updateGSStatus('connected', '已連線');
     gsLoading = false; setLoginBtnState(true);
+
+    // 第二階段：背景載入近3個月紀錄（不阻擋登入）
+    const from = getRecentFrom();
+    const [ctRecs, angRecs, ctN, angN] = await Promise.all([
+      gsGet('getCTRecords', {from}),
+      gsGet('getAngRecords', {from}),
+      gsGet('getCTNotify'),
+      gsGet('getAngNotify')
+    ]);
+    if (ctRecs && Array.isArray(ctRecs)) records = ctRecs;
+    if (angRecs && Array.isArray(angRecs)) angRecords = angRecs;
+    if (ctN) ctCfg.notifyPrefs = ctN;
+    if (angN) angCfg.notifyPrefs = angN;
+    gsFullRecordsLoaded = false; // 完整歷史尚未載入
+    saveStateLocal();
   } catch(e) {
     updateGSStatus('error', '連線失敗');
     console.warn('GS load failed, using localStorage:', e);
     gsLoading = false; setLoginBtnState(true);
+  }
+}
+
+// 進入歷史查詢時才載入完整紀錄
+async function loadFullRecordsIfNeeded() {
+  if (gsFullRecordsLoaded || !gsOnline) return;
+  showToast('載入完整歷史紀錄中…', 'tok');
+  try {
+    const [ctRecs, angRecs] = await Promise.all([
+      gsGet('getCTRecords'),
+      gsGet('getAngRecords')
+    ]);
+    if (ctRecs && Array.isArray(ctRecs)) records = ctRecs;
+    if (angRecs && Array.isArray(angRecs)) angRecords = angRecs;
+    gsFullRecordsLoaded = true;
+    saveStateLocal();
+    showToast('歷史紀錄載入完成', 'tok');
+  } catch(e) {
+    console.warn('Full records load failed:', e);
   }
 }
 
@@ -1282,8 +1315,8 @@ function showPage(p,btn,sys){
   btn.classList.add('active');
   if(p==='trend')setTimeout(renderTrend,80);
   if(p==='ang-trend')setTimeout(renderAngTrend,80);
-  if(p==='history'){filteredRecords=[...records];renderCTHistory(filteredRecords);renderCTMonthReviewList();}
-  if(p==='ang-history'){filteredAngRecords=[...angRecords];renderAngHistory(filteredAngRecords);renderAngMonthReviewList();}
+  if(p==='history'){loadFullRecordsIfNeeded().then(()=>{filteredRecords=[...records];renderCTHistory(filteredRecords);renderCTMonthReviewList();});filteredRecords=[...records];renderCTHistory(filteredRecords);renderCTMonthReviewList();}
+  if(p==='ang-history'){loadFullRecordsIfNeeded().then(()=>{filteredAngRecords=[...angRecords];renderAngHistory(filteredAngRecords);renderAngMonthReviewList();});filteredAngRecords=[...angRecords];renderAngHistory(filteredAngRecords);renderAngMonthReviewList();}
   if(p==='dash')renderCTDash();
   if(p==='ang-dash')renderAngDash();
   if(p==='settings'){populateCTRoomSettings();populateUserTable('user-tbody');populateCTNotify();}
