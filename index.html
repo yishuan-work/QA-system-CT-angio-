@@ -338,6 +338,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);bo
     <div class="fg" style="margin-bottom:4px"><label>密碼</label><input type="password" id="login-pw" placeholder="請輸入密碼" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <div style="font-size:11.5px;color:#8a9bb5;margin-bottom:14px;padding-left:2px">密碼為西元出生年月日共8碼（YYYYMMDD）</div>
     <button class="btn btn-p" style="width:100%;justify-content:center;padding:10px" onclick="doLogin()">登入</button>
+    <div id="login-loading-hint" style="display:none;text-align:center;font-size:11.5px;color:#8a9bb5;margin-top:8px">正在從伺服器載入最新帳號資料，請稍候…</div>
   </div>
 </div>
 
@@ -906,6 +907,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);bo
 //  Google Sheets API Layer  (混合模式：線上→GS，離線→localStorage)
 // ══════════════════════════════════════════════════════════════════
 const LS_GS_URL = 'qa-gs-url';
+let gsLoading = false; // 是否正在從 GS 載入
 let GS_URL = localStorage.getItem(LS_GS_URL) || 'https://script.google.com/macros/s/AKfycbyEpUq53E_Xin1vja0XLRrCk6UNuVoLREJQC6x4Gcm4fiekYXeEekT7r2i5o06B3DVIfQ/exec';
 let gsOnline = false;
 
@@ -998,6 +1000,23 @@ function closeGSConfig() {
 }
 
 // ── RWD Sidebar ──
+function setLoginBtnState(enabled) {
+  const btn = document.querySelector('#login-screen .btn-p');
+  const hint = document.getElementById('login-loading-hint');
+  if (!btn) return;
+  if (enabled) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.textContent = '登入';
+    if (hint) hint.style.display = 'none';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+    btn.textContent = '資料載入中…';
+    if (hint) hint.style.display = 'block';
+  }
+}
+
 function toggleSidebar(sys) {
   const sb = document.getElementById(sys+'-sidebar');
   const ov = document.getElementById(sys+'-overlay');
@@ -1020,9 +1039,11 @@ document.addEventListener('click', function(e) {
 // ═══════════════════════════════════════════
 async function loadStateAsync() {
   updateGSStatus('loading', '連線中…');
+  gsLoading = true;
+  setLoginBtnState(false);
   // Always load localStorage as fallback
   loadStateLocal();
-  if (!GS_URL) { updateGSStatus('offline', '離線模式'); return; }
+  if (!GS_URL) { updateGSStatus('offline', '離線模式'); gsLoading = false; setLoginBtnState(true); return; }
   try {
     const [users, ctCfgData, angCfgData, ctRecs, angRecs] = await Promise.all([
       gsGet('getUsers'),
@@ -1044,9 +1065,11 @@ async function loadStateAsync() {
     if (angN) angCfg.notifyPrefs = angN;
     saveStateLocal(); // cache locally
     updateGSStatus('connected', '已連線');
+    gsLoading = false; setLoginBtnState(true);
   } catch(e) {
     updateGSStatus('error', '連線失敗');
     console.warn('GS load failed, using localStorage:', e);
+    gsLoading = false; setLoginBtnState(true);
   }
 }
 
@@ -1191,7 +1214,7 @@ function canReview(u){return u.role==='admin'||u.canReview===true;}
 function doLogin(){
   const id=document.getElementById('login-id').value.trim();
   const pw=document.getElementById('login-pw').value;
-  const u=sharedCfg.users.find(x=>x.id===id&&x.pw===pw);
+  const u=sharedCfg.users.find(x=>String(x.id)===id&&String(x.pw)===pw);
   if(!u){document.getElementById('login-err').style.display='block';return;}
   currentUser=u;
   document.getElementById('login-screen').style.display='none';
