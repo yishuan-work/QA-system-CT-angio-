@@ -1199,7 +1199,14 @@ async function saveStateGS_ctRec(rec, oldRec) {
 }
 async function saveStateGS_deleteCTRec(rec) {
   saveStateLocal();
-  if (gsOnline) await gsPost('deleteCTRecord', {savedAt:rec.savedAt, date:rec.date, room:rec.room, type:rec.type});
+  if (gsOnline) {
+    const result = await gsPost('deleteCTRecord', {savedAt:rec.savedAt, date:rec.date, room:rec.room, type:rec.type});
+    console.log('[DELETE CT] sent:', rec.savedAt, rec.date, 'result:', JSON.stringify(result));
+    if (!result || !result.ok) showToast('⚠️ GS刪除失敗，請手動確認','terr');
+  } else {
+    console.warn('[DELETE CT] offline, GS not deleted');
+    showToast('⚠️ 離線狀態，GS未同步刪除','twarn');
+  }
 }
 async function saveStateGS_angRec(rec) {
   saveStateLocal();
@@ -1207,7 +1214,14 @@ async function saveStateGS_angRec(rec) {
 }
 async function saveStateGS_deleteAngRec(rec) {
   saveStateLocal();
-  if (gsOnline) await gsPost('deleteAngRecord', {savedAt:rec.savedAt, date:rec.date, type:rec.type});
+  if (gsOnline) {
+    const result = await gsPost('deleteAngRecord', {savedAt:rec.savedAt, date:rec.date, type:rec.type});
+    console.log('[DELETE ANG] sent:', rec.savedAt, rec.date, 'result:', JSON.stringify(result));
+    if (!result || !result.ok) showToast('⚠️ GS刪除失敗，請手動確認','terr');
+  } else {
+    console.warn('[DELETE ANG] offline, GS not deleted');
+    showToast('⚠️ 離線狀態，GS未同步刪除','twarn');
+  }
 }
 async function saveStateGS_ctNotify(data) {
   saveStateLocal();
