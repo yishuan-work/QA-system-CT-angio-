@@ -1131,16 +1131,15 @@ async function loadStateAsync() {
     updateGSStatus('connected', '已連線');
     gsLoading = false; setLoginBtnState(true);
 
-    // 第二階段：背景載入近3個月紀錄（不阻擋登入）
-    const from = getRecentFrom();
+    // 第二階段：背景載入完整紀錄（不阻擋登入）
     const [ctRecs, angRecs, ctN, angN] = await Promise.all([
-      gsGet('getCTRecords', {from}),
-      gsGet('getAngRecords', {from}),
+      gsGet('getCTRecords'),
+      gsGet('getAngRecords'),
       gsGet('getCTNotify'),
       gsGet('getAngNotify')
     ]);
-    if (ctRecs && Array.isArray(ctRecs)) records = ctRecs;
-    if (angRecs && Array.isArray(angRecs)) angRecords = angRecs;
+    if (ctRecs && Array.isArray(ctRecs)) records = ctRecs.filter(r => !deletedKeys.has(recKey(r)));
+    if (angRecs && Array.isArray(angRecs)) angRecords = angRecs.filter(r => !deletedKeys.has(recKeyAng(r)));
     if (ctN) ctCfg.notifyPrefs = ctN;
     if (angN) angCfg.notifyPrefs = angN;
     gsFullRecordsLoaded = false; // 完整歷史尚未載入
@@ -2818,19 +2817,20 @@ function startAutoSync() {
   autoSyncTimer = setInterval(async () => {
     if (!gsOnline || !currentUser) return;
     try {
-      const from = getRecentFrom();
+      // 直接從GS取得所有資料（GS為唯一資料來源）
       const [ctRecs, angRecs] = await Promise.all([
-        gsGet('getCTRecords', {from}),
-        gsGet('getAngRecords', {from})
+        gsGet('getCTRecords'),
+        gsGet('getAngRecords')
       ]);
       if (ctRecs && Array.isArray(ctRecs)) {
-        // 合併：保留本地比GS新的資料，GS為主
-        records = mergeRecords(records, ctRecs);
+        // GS為主，只排除已在本裝置刪除的紀錄
+        records = ctRecs.filter(r => !deletedKeys.has(recKey(r)));
       }
       if (angRecs && Array.isArray(angRecs)) {
-        angRecords = mergeAngRecords(angRecords, angRecs);
+        angRecords = angRecs.filter(r => !deletedKeys.has(recKeyAng(r)));
       }
       lastSyncTime = new Date();
+      gsFullRecordsLoaded = true;
       saveStateLocal();
       // 更新儀表板（若在儀表板頁面）
       const ctDash = document.getElementById('ct-page-dash');
