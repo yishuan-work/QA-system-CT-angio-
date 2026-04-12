@@ -2131,7 +2131,8 @@ function saveAngDaily(){
 }
 async function commitSaveAng(rec,dupIdx){
   if(dupIdx>=0)angRecords[dupIdx]=rec;else angRecords.push(rec);
-  saveState();updateAngReviewBadge();
+  await saveStateGS_angRec(rec);
+  updateAngReviewBadge();
   showSaveBanner('ang',`已填寫完成並儲存　${rec.date}　判定：${rec.overall==='pass'?'合格':'不合格'}`);
   resetAngForm();renderAngDash();
 }
@@ -2832,10 +2833,13 @@ function startAutoSync() {
       lastSyncTime = new Date();
       saveStateLocal();
       // 更新儀表板（若在儀表板頁面）
-      const ctDash = document.getElementById('ct-page-ct-dash');
+      const ctDash = document.getElementById('ct-page-dash');
       if (ctDash && ctDash.classList.contains('active')) renderCTDash();
       const angDash = document.getElementById('ang-page-ang-dash');
       if (angDash && angDash.classList.contains('active')) renderAngDash();
+      // 更新badge
+      updateCTReviewBadge();
+      updateAngReviewBadge();
     } catch(e) {
       console.warn('[AutoSync] failed:', e.message);
     }
